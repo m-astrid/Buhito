@@ -1,0 +1,10 @@
+# Модуль buf: где искать proto-файлы.
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

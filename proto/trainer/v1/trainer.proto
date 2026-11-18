@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package trainer.v1;
+
+option go_package = "github.com/evgshumakova/mini-owl/gen/trainer/v1;trainerv1";
+
+// TrainerService — универсальный каталог карточек для тренажёра спикинга.
+// Родной язык пользователя — всегда русский; target-языки: it, en.
+service TrainerService {
+  // Справочники для экранов выбора в боте.
+  rpc ListLanguages(ListLanguagesRequest) returns (ListLanguagesResponse);
+  rpc ListLevels(ListLevelsRequest) returns (ListLevelsResponse);
+  // topic_type: GRAMMAR | LEXICA. Для GRAMMAR level_code фильтрует темы
+  // выбранного уровня, включая темы без уровня (level_id IS NULL).
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse);
+
+  // Основной сценарий: count случайных карточек по фильтрам, без повторов.
+  // Если карточек меньше count — вернуть сколько есть + available.
+  rpc DrawCards(DrawCardsRequest) returns (DrawCardsResponse);
+
+  // Наполнение каталога (генерация тем/карточек — отдельный скоуп).
+  rpc UpsertCard(UpsertCardRequest) returns (UpsertCardResponse);
+  rpc DeleteCard(DeleteCardRequest) returns (DeleteCardResponse);
+}
+
+message ListLanguagesRequest {}
+
+message ListLanguagesResponse {
+  repeated Language languages = 1;
+}
+
+message Language {
+  string code = 1; // "it", "en"
+  string name = 2; // "Итальянский", "Английский"
+}
+
+message ListLevelsRequest {
+  // Пусто = все уровни. Уровни не зависят от языка, фильтр — для будущего.
+  string language_code = 1;
+}
+
+message ListLevelsResponse {
+  repeated Level levels = 1; // отсортированы по sort_order
+}
+
+message Level {
+  string code = 1; // "A1".."C1"
+  int32 sort_order = 2;
+}
+
+enum TopicType {
+  TOPIC_TYPE_UNSPECIFIED = 0;
+  TOPIC_TYPE_GRAMMAR = 1;
+  TOPIC_TYPE_LEXICA = 2;
+}
+
+message ListTopicsRequest {
+  string language_code = 1;
+  TopicType topic_type = 2;
+  // Опциональный фильтр уровня (только для GRAMMAR): вернуть темы уровня
+  // плюс темы без привязки к уровню. Пусто = все темы языка.
+  string level_code = 3;
+}
+
+message ListTopicsResponse {
+  repeated Topic topics = 1; // отсортированы по title
+}
+
+message Topic {
+  int64 id = 1;
+  string title = 2;
+}
+
+message Card {
+  int64 id = 1;
+  string language_code = 2;
+  string level_code = 3;
+  string source_text = 4; // RU-фраза
+  string target_text = 5; // правильный перевод
+  string note = 6;        // опц. пояснение/варианты
+  repeated Topic grammar_topics = 7;
+  repeated Topic lexica_topics = 8;
+}
+
+message DrawCardsRequest {
+  string language_code = 1;
+  string level_code = 2;                // пусто = любой
+  repeated int64 grammar_topic_ids = 3; // пусто = любые
+  repeated int64 lexica_topic_ids = 4;  // пусто = любые
+  int32 count = 5;                      // сервер ограничивает: 1..50
+}
+
+message DrawCardsResponse {
+  repeated Card cards = 1;
+  int32 available = 2; // сколько карточек подходит под фильтр всего
+}
+
+message UpsertCardRequest {
+  // id = 0 → создать; id != 0 → обновить существующую карточку.
+  int64 id = 1;
+  string language_code = 2;
+  string level_code = 3;
+  string source_text = 4;
+  string target_text = 5;
+  string note = 6;
+  repeated int64 grammar_topic_ids = 7;
+  repeated int64 lexica_topic_ids = 8;
+}
+
+message UpsertCardResponse {
+  Card card = 1;
+}
+
+message DeleteCardRequest {
+  int64 id = 1;
+}
+
+message DeleteCardResponse {}
